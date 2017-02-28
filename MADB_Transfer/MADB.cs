@@ -12,6 +12,7 @@ namespace MADB_Transfer
 {
     class MADB
     {
+        private string mStrMARecordTblName = "tab記錄"; 
         private const string mStrDBConn_PreFix = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=";
         private const string mstrDBConn_PWD_PreFix = ";Jet OLEDB:Database Password=";
         private string mStrDBConnectionString = "";
@@ -27,6 +28,7 @@ namespace MADB_Transfer
         public bool MADB_Connection(string stDBPath, string pwd)
         {
             bool bRtn = false;
+            String strTableName;
             if (File.Exists(stDBPath))
             {
                 mStrDBConnectionString = mStrDBConn_PreFix + stDBPath;
@@ -40,13 +42,36 @@ namespace MADB_Transfer
                     myAccessConn = new OleDbConnection(mStrDBConnectionString);
                     myAccessConn.Open();
                     mAllTables = myAccessConn.GetSchema("Tables", restrictions);
+
+                    foreach (DataRow dr in mAllTables.Rows)
+                    {
+                        if (dr["TABLE_TYPE"].ToString() == "VIEW" || dr["TABLE_TYPE"].ToString() == "TABLE")
+                        {
+                            strTableName = String.Format("{0}", dr["TABLE_NAME"]);
+                            //if (mStrMARecordTblName == strTableName)
+                            if(strTableName.Equals(mStrMARecordTblName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                bRtn = true;    //Find mStrMARecordTblName in tables, this is MA database
+                                break;
+                            }
+                            //String tableName = String.Format("{0}", dr["TABLE_NAME"]);
+                            //DataTable dt = new DataTable(tableName);
+                            //ReadTable(dt, accessFile, tableName);
+                            //allData.Tables.Add(dt);
+                        }
+                    }
+
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show("Error: Can not connect to "+ stDBPath +"\r\n Error : " + ex.Message);
                     return false;
                 }
-                if (null != myAccessConn) bRtn = true;
+
+                if(true != bRtn)
+                {
+                    MessageBox.Show("Error: This is not MA database");
+                }
             }
             else
             {
