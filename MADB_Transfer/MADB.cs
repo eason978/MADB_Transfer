@@ -12,7 +12,8 @@ namespace MADB_Transfer
 {
     class MADB
     {
-        private string mStrMARecordTblName = "tab記錄"; 
+        public const string mStrMARecordTblName = "tab記錄";
+        private DataTable mDtMARecordTbl = null;
         private const string mStrDBConn_PreFix = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=";
         private const string mstrDBConn_PWD_PreFix = ";Jet OLEDB:Database Password=";
         private string mStrDBConnectionString = "";
@@ -42,16 +43,18 @@ namespace MADB_Transfer
                     myAccessConn = new OleDbConnection(mStrDBConnectionString);
                     myAccessConn.Open();
                     mAllTables = myAccessConn.GetSchema("Tables", restrictions);
-
+                    myAccessConn.Close();
                     foreach (DataRow dr in mAllTables.Rows)
                     {
                         if (dr["TABLE_TYPE"].ToString() == "VIEW" || dr["TABLE_TYPE"].ToString() == "TABLE")
                         {
                             strTableName = String.Format("{0}", dr["TABLE_NAME"]);
                             //if (mStrMARecordTblName == strTableName)
-                            if(strTableName.Equals(mStrMARecordTblName, StringComparison.OrdinalIgnoreCase))
+                            if (strTableName.Equals(mStrMARecordTblName, StringComparison.OrdinalIgnoreCase))
                             {
                                 bRtn = true;    //Find mStrMARecordTblName in tables, this is MA database
+                                mDtMARecordTbl = new DataTable(mStrMARecordTblName);
+                                MADB_ReadTable(mDtMARecordTbl, mStrMARecordTblName);
                                 break;
                             }
                             //String tableName = String.Format("{0}", dr["TABLE_NAME"]);
@@ -64,8 +67,12 @@ namespace MADB_Transfer
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Error: Can not connect to "+ stDBPath +"\r\n Error : " + ex.Message);
+                    MessageBox.Show("Error: Can not connect to " + stDBPath + "\r\n Error : " + ex.Message);
                     return false;
+                }
+                finally
+                {
+                    myAccessConn.Close();
                 }
 
                 if(true != bRtn)
@@ -78,6 +85,43 @@ namespace MADB_Transfer
                 MessageBox.Show("Error: File " + stDBPath + " does not exit");
             }
             return bRtn;
+        }
+
+        public DataTable MADB_GetRecordTable( )
+        {
+            if (null == mDtMARecordTbl)
+            {
+                MessageBox.Show("Error: Please call MADB_Connection first");
+            }
+            return mDtMARecordTbl;
+        }
+
+        public void MADB_ReadTable(DataTable dt, string tableName)
+        {
+            if (null == myAccessConn)
+            {
+                MessageBox.Show("Error: Please call MADB_Connection first");
+                return;
+            }
+
+            try
+            {
+                myAccessConn.Open();
+                OleDbCommand odCommand = myAccessConn.CreateCommand();
+                odCommand.CommandText = String.Format("select * from [{0}]", tableName);
+                OleDbDataReader odrReader = odCommand.ExecuteReader();
+                dt.Load(odrReader);
+                odrReader.Close();
+            }
+            catch (Exception ex)
+            {
+                //Debug.WriteLine(e.Message);
+                MessageBox.Show("Error: Can not Read table " + tableName + "\r\n Error : " + ex.Message);
+            }
+            finally
+            {
+                myAccessConn.Close();
+            }
         }
     }
 }

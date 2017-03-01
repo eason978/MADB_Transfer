@@ -24,6 +24,7 @@ namespace MADB_Transfer
         {
             Stream myStream = null;
             OpenFileDialog openFileDialog1 = new OpenFileDialog();
+            DataTable dtTable;
 
             openFileDialog1.InitialDirectory = Directory.GetCurrentDirectory();
             openFileDialog1.Filter = "All files (*.*)|*.*";
@@ -45,10 +46,17 @@ namespace MADB_Transfer
                                 if(mMADB.MADB_Connection(textBox_SrcDBPath.Text, "MA0502"))
                                 {
                                     tabControl2.TabPages.Clear();
-                                    for(int i = 0; i < mMADB.mAllTables.Rows.Count; i++)
-                                    {
-                                        tabControl2.TabPages.Add(new TabPage(mMADB.mAllTables.Rows[i][2].ToString()));
-                                    }
+                                    TabPage tp = new TabPage(MADB.mStrMARecordTblName);
+                                    DataGrid dg = new DataGrid();
+                                    tabControl2.TabPages.Add(tp);
+                                    tp.Controls.Add(dg);
+                                    dg.DataSource = mMADB.MADB_GetRecordTable();
+                                    dg.Dock = DockStyle.Fill;
+
+                                    //for(int i = 0; i < mMADB.mAllTables.Rows.Count; i++)
+                                    //{
+                                    //    tabControl2.TabPages.Add(new TabPage(mMADB.mAllTables.Rows[i][2].ToString()));
+                                    //}
                                 }
                             }
                             else if (sender == btn_DstDBLoad)
