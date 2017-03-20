@@ -1,67 +1,66 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SQLite;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.IO;
-using System.Data;
-using System.Data.OleDb;
 using System.Windows.Forms;
 
 namespace MADB_Transfer
 {
-    class MADB
+    class MMEXDB
     {
-        public const string mStrDBRecordTblName = "tab記錄";
+        public const string mStrDBRecordTblName = "CHECKINGACCOUNT_V1";
         private DataTable mDtDBRecordTbl = null;
-        private const string mStrDBConn_PreFix = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=";
+        private const string mStrDBConn_PreFix = "Version=3;New=False;Compress=False;Data Source=";
         private const string mstrDBConn_PWD_PreFix = ";Jet OLEDB:Database Password=";
         private string mStrDBConnectionString = "";
-        private OleDbConnection myAccessConn = null;
+        private SQLiteConnection myAccessConn = null;
+        //private SQLiteCommand myAccessCmd;
 
         public DataTable mAllTables = null;
 
-        public MADB()
+        public MMEXDB()
         {
 
         }
-
         public bool DB_Connection(string stDBPath, string pwd)
         {
+            SQLiteCommand myAccessCmd;
             bool bRtn = false;
             String strTableName;
+            mAllTables = new DataTable();
             if (File.Exists(stDBPath))
             {
                 mStrDBConnectionString = mStrDBConn_PreFix + stDBPath;
                 if (null != pwd && "" != pwd) mStrDBConnectionString += (mstrDBConn_PWD_PreFix + pwd);
                 try
                 {
-                    // We only want user tables, not system tables
-                    string[] restrictions = new string[4];
-                    restrictions[3] = "Table";
-
-                    myAccessConn = new OleDbConnection(mStrDBConnectionString);
+                    myAccessConn = new SQLiteConnection(mStrDBConnectionString);
                     myAccessConn.Open();
-                    mAllTables = myAccessConn.GetSchema("Tables", restrictions);
+                    myAccessCmd = myAccessConn.CreateCommand();//create command
+                    myAccessCmd.CommandText = @"select * from sqlite_master where type = 'table'";
+                    SQLiteDataReader dbreader = myAccessCmd.ExecuteReader();
+                    mAllTables.Load(dbreader);
                     myAccessConn.Close();
                     foreach (DataRow dr in mAllTables.Rows)
                     {
-                        if (dr["TABLE_TYPE"].ToString() == "VIEW" || dr["TABLE_TYPE"].ToString() == "TABLE")
+#if true
+                        strTableName = String.Format("{0}", dr["tbl_name"]);
+                        //if (mStrDBRecordTblName == strTableName)
+                        if (strTableName.Equals(mStrDBRecordTblName, StringComparison.OrdinalIgnoreCase))
                         {
-                            strTableName = String.Format("{0}", dr["TABLE_NAME"]);
-                            //if (mStrDBRecordTblName == strTableName)
-                            if (strTableName.Equals(mStrDBRecordTblName, StringComparison.OrdinalIgnoreCase))
-                            {
-                                bRtn = true;    //Find mStrDBRecordTblName in tables, this is MA database
-                                mDtDBRecordTbl = new DataTable(mStrDBRecordTblName);
-                                DB_ReadTable(mDtDBRecordTbl, mStrDBRecordTblName);
-                                break;
-                            }
-                            //String tableName = String.Format("{0}", dr["TABLE_NAME"]);
-                            //DataTable dt = new DataTable(tableName);
-                            //ReadTable(dt, accessFile, tableName);
-                            //allData.Tables.Add(dt);
+                            bRtn = true;    //Find mStrDBRecordTblName in tables, this is MA database
+                            mDtDBRecordTbl = new DataTable(mStrDBRecordTblName);
+                            DB_ReadTable(mDtDBRecordTbl, mStrDBRecordTblName);
+                            break;
                         }
+                        //String tableName = String.Format("{0}", dr["TABLE_NAME"]);
+                        //DataTable dt = new DataTable(tableName);
+                        //ReadTable(dt, accessFile, tableName);
+#endif
                     }
 
                 }
@@ -75,7 +74,7 @@ namespace MADB_Transfer
                     myAccessConn.Close();
                 }
 
-                if(true != bRtn)
+                if (true != bRtn)
                 {
                     MessageBox.Show("Error: This is not MA database");
                 }
@@ -86,7 +85,8 @@ namespace MADB_Transfer
             }
             return bRtn;
         }
-        public DataTable DB_GetRecordTable( )
+
+        public DataTable DB_GetRecordTable()
         {
             if (null == mDtDBRecordTbl)
             {
@@ -103,20 +103,22 @@ namespace MADB_Transfer
 
         public void DB_QueryTable(DataTable dt, string stQureyStr)
         {
+#if true
+            SQLiteCommand myAccessCmd;
             if (null == myAccessConn)
             {
-                MessageBox.Show("Error: Please call MADB_Connection first");
+                MessageBox.Show("Error: Please call DB_Connection first");
                 return;
             }
 
             try
             {
                 myAccessConn.Open();
-                OleDbCommand odCommand = myAccessConn.CreateCommand();
-                odCommand.CommandText = stQureyStr;
-                OleDbDataReader odrReader = odCommand.ExecuteReader();
-                dt.Load(odrReader);
-                odrReader.Close();
+                myAccessCmd = myAccessConn.CreateCommand();
+                myAccessCmd.CommandText = stQureyStr;
+                SQLiteDataReader dbReader = myAccessCmd.ExecuteReader();
+                dt.Load(dbReader);
+                dbReader.Close();
             }
             catch (Exception ex)
             {
@@ -127,6 +129,17 @@ namespace MADB_Transfer
             {
                 myAccessConn.Close();
             }
+#else
+            DataTable myDataTable = new DataTable();
+            myAccessConn.Open();
+            SQLiteDataAdapter da = new SQLiteDataAdapter(SQLiteString, myAccessConn);
+            DataSet ds = new DataSet();
+            ds.Clear();
+            da.Fill(ds);
+            myDataTable = ds.Tables[0];
+            if (icn.State == ConnectionState.Open) icn.Close();
+            return myDataTable;
+#endif
         }
     }
 }
